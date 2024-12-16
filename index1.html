@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>multi-layer encryption</title>
+    <style>
+        /* إعدادات عامة */
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600&display=swap');
+        body {
+            font-family: 'Cairo', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            color: #fff;
+            background: #0d1117;
+        }
+
+        /* إعدادات الحاوية */
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 15px;
+            box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.5);
+            animation: slideIn 1.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            color: #00ff9d;
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: 2px solid #00ff9d;
+            width: 100%;
+            animation: typing 3s steps(30, end), blink 0.5s step-end infinite alternate;
+        }
+
+        @keyframes typing {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+
+        @keyframes blink {
+            from { border-color: transparent; }
+            to { border-color: #00ff9d; }
+        }
+
+        label {
+            font-size: 1.1rem;
+            margin-top: 10px;
+            display: block;
+        }
+
+        input, select {
+            width: 100%;
+            margin: 10px 0;
+            padding: 12px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #000;
+            transition: transform 0.2s ease, background 0.3s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            transform: scale(1.03);
+            background: rgba(255, 255, 255, 1);
+            box-shadow: 0px 0px 10px rgba(255, 255, 255, 0.8);
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            margin: 20px 0;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #00e676, #00ff9d);
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.3s ease;
+        }
+
+        button:hover {
+            transform: scale(1.1);
+            box-shadow: 0px 8px 15px rgba(0, 255, 157, 0.6);
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            color: #00ff9d;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+
+        /* إعدادات الـ Canvas */
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body>
+    <canvas></canvas>
+    <div class="container">
+        <h1>🔐 تشفير متعدد الطبقات</h1>
+
+        <label for="inputText">📜 النص:</label>
+        <input type="text" id="inputText" placeholder="أدخل النص هنا" />
+
+        <label for="caesarKey">🔑 مفتاح شيفرة Caesar (عدد صحيح):</label>
+        <input type="number" id="caesarKey" placeholder="أدخل مفتاح الإزاحة" />
+
+        <label for="xorKey">🔑 مفتاح شيفرة XOR (حرف واحد):</label>
+        <input type="text" id="xorKey" maxlength="1" placeholder="أدخل مفتاح XOR" />
+
+        <label for="operation">⚙️ العملية:</label>
+        <select id="operation">
+            <option value="encrypt">تشفير</option>
+            <option value="decrypt">فك التشفير</option>
+        </select>
+
+        <button onclick="processText()">🚀 تنفيذ</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // خلفية متحركة باستخدام Canvas
+        const canvas = document.querySelector('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const particles = [];
+        const colors = ['#00ff9d', '#00e676', '#00c853', '#a7ffeb'];
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 5 + 1;
+                this.speedX = Math.random() * 2 - 1;
+                this.speedY = Math.random() * 2 - 1;
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles.length = 0;
+            for (let i = 0; i < 100; i++) {
+                particles.push(new Particle(Math.random() * canvas.width, Math.random() * canvas.height));
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+            requestAnimationFrame(animateParticles);
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initParticles();
+        });
+
+        initParticles();
+        animateParticles();
+
+        // وظائف التشفير
+        function caesarCipher(text, shift) {
+            return text.split('').map(char => {
+                const code = char.charCodeAt(0);
+                if (code >= 32 && code <= 126) {
+                    return String.fromCharCode(((code - 32 + shift) % 95) + 32);
+                }
+                return char;
+            }).join('');
+        }
+
+        function xorCipher(text, key) {
+            const keyCode = key.charCodeAt(0);
+            return text.split('').map(char => {
+                const code = char.charCodeAt(0);
+                return String.fromCharCode(((code ^ keyCode) % 95) + 32);
+            }).join('');
+        }
+
+        function reverseText(text) {
+            return text.split('').reverse().join('');
+        }
+
+        function processText() {
+            const inputText = document.getElementById('inputText').value.trim();
+            const caesarKey = parseInt(document.getElementById('caesarKey').value);
+            const xorKey = document.getElementById('xorKey').value;
+            const operation = document.getElementById('operation').value;
+
+            if (!inputText || isNaN(caesarKey) || xorKey.length !== 1) {
+                alert("الرجاء إدخال النص ومفاتيح صحيحة.");
+                return;
+            }
+
+            let resultText;
+
+            if (operation === "encrypt") {
+                const xorEncrypted = xorCipher(inputText, xorKey);
+                const caesarEncrypted = caesarCipher(xorEncrypted, caesarKey);
+                resultText = reverseText(caesarEncrypted);
+            } else if (operation === "decrypt") {
+                const reversedText = reverseText(inputText);
+                const caesarDecrypted = caesarCipher(reversedText, -caesarKey);
+                resultText = xorCipher(caesarDecrypted, xorKey);
+            }
+
+            document.getElementById('result').textContent = `النص الناتج: ${resultText}`;
+        }
+    </script>
+</body>
+</html>
